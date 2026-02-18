@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Crop Disease Detection</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 p-10 font-sans">
+  <div class="max-w-xl mx-auto bg-white rounded-3xl shadow-xl p-8">
+    <h1 class="text-3xl font-bold text-green-700 text-center mb-6">
+      Crop Disease Detection
+    </h1>
+
+    <!-- Epoch Selector -->
+    <div class="mb-6">
+      <label class="block text-sm font-bold text-gray-700 mb-2">
+        Select Training Stage (Epoch):
+      </label>
+
+      <div class="flex gap-3 items-center">
+        <input
+          id="epochInput"
+          type="number"
+          min="1"
+          step="1"
+          value="1"
+          class="w-full p-3 border rounded-xl bg-gray-50 focus:ring-2 focus:ring-green-500"
+          placeholder="Enter epoch number (e.g. 1, 5, 10)"
+        />
+
+        <!-- Quick epoch buttons -->
+        <div class="flex gap-2">
+          <button onclick="setEpoch(1)" class="px-3 py-2 rounded-xl bg-gray-200 text-xs font-bold hover:bg-gray-300">
+            1
+          </button>
+          <button onclick="setEpoch(5)" class="px-3 py-2 rounded-xl bg-gray-200 text-xs font-bold hover:bg-gray-300">
+            5
+          </button>
+          <button onclick="setEpoch(10)" class="px-3 py-2 rounded-xl bg-gray-200 text-xs font-bold hover:bg-gray-300">
+            10
+          </button>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-gray-400 mt-2">
+        Uses model_XX.keras → example: epoch 3 = model_03.keras
+      </p>
+    </div>
+
+    <!-- Image Upload -->
+    <div
+      onclick="document.getElementById('imgInput').click()"
+      class="border-4 border-dashed border-gray-200 rounded-2xl p-10 text-center cursor-pointer hover:border-green-300 transition"
+    >
+      <input type="file" id="imgInput" class="hidden" accept="image/*" />
+      <p id="fileName" class="text-gray-400">Tap to upload leaf image</p>
+      <img
+        id="preview"
+        class="mt-4 hidden max-h-48 mx-auto rounded-lg shadow"
+      />
+    </div>
+
+    <!-- Run Button -->
+    <button
+      onclick="runAnalysis()"
+      class="w-full mt-6 bg-green-600 text-white py-4 rounded-xl font-bold hover:bg-green-700 transition"
+    >
+      Run Diagnosis
+    </button>
+
+    <!-- Result Box -->
+    <div id="resBox" class="hidden mt-8 p-6 rounded-2xl border-2">
+      <div class="flex justify-between items-start">
+        <div>
+          <h2
+            id="resDisease"
+            class="text-2xl font-black text-gray-900 capitalize"
+          ></h2>
+          <p id="resConf" class="text-lg font-medium"></p>
+        </div>
+        <span
+          id="resVer"
+          class="bg-gray-200 px-3 py-1 rounded-full text-xs font-bold"
+        ></span>
+      </div>
+      <p
+        id="resPath"
+        class="text-[10px] text-gray-400 mt-4 font-mono"
+      ></p>
+    </div>
+  </div>
+
+  <!-- JS -->
+  <script>
+    const imgInput = document.getElementById("imgInput");
+
+    imgInput.onchange = () => {
+      const file = imgInput.files[0];
+      if (file) {
+        document.getElementById("fileName").innerText = file.name;
+        document.getElementById("preview").src = URL.createObjectURL(file);
+        document.getElementById("preview").classList.remove("hidden");
+      }
+    };
+
+    function setEpoch(n) {
+      document.getElementById("epochInput").value = n;
+    }
+
+    async function runAnalysis() {
+      const file = imgInput.files[0];
+      const epoch = parseInt(
+        document.getElementById("epochInput").value,
+        10
+      );
+
+      if (!file) return alert("Upload an image!");
+      if (!Number.isFinite(epoch) || epoch < 1)
+        return alert("Enter a valid epoch number (>= 1)");
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch(
+        `http://localhost:8000/predict?epoch=${epoch}`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await res.json();
+      if (data.error) return alert(data.error);
+
+      const box = document.getElementById("resBox");
+      box.classList.remove("hidden", "bg-red-50", "bg-green-50", "bg-yellow-50");
+      box.classList.add(
+        parseFloat(data.confidence) > 80 ? "bg-green-50" : "bg-yellow-50"
+      );
+
+      document.getElementById("resDisease").innerText = data.disease;
+      document.getElementById("resConf").innerText =
+        "Confidence: " + data.confidence;
+      document.getElementById("resVer").innerText = data.version;
+      document.getElementById("resPath").innerText =
+        "Loaded: " + data.file_used;
+    }
+  </script>
+</body>
+</html>
